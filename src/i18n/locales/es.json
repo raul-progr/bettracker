@@ -1,0 +1,52 @@
+{
+  "common": {
+    "bankroll": "Bankroll",
+    "currentBalance": "Balance Actual",
+    "initialBankroll": "Bankroll Inicial",
+    "betHistory": "Historial de Apuestas",
+    "performance": "Rendimiento",
+    "addBet": "Agregar Apuesta",
+    "settings": "Configuración",
+    "reset": "Reiniciar Historial",
+    "resetConfirm": "¿Estás seguro de que deseas reiniciar todo el historial de apuestas? Esta acción no se puede deshacer.",
+    "language": "Idioma",
+    "oddsFormat": "Formato de Cuotas",
+    "searchBets": "Buscar apuestas...",
+    "filter": "Filtrar",
+    "show": "Mostrar",
+    "noBetsFound": "No se encontraron apuestas",
+    "clearFilters": "Limpiar filtros",
+    "markAsWin": "Marcar como Ganada",
+    "markAsLoss": "Marcar como Perdida",
+    "deleteBet": "Eliminar Apuesta",
+    "deleteConfirm": "¿Estás seguro de que deseas eliminar esta apuesta?",
+    "cashOut": "Cobrar"
+  },
+  "betForm": {
+    "description": "Descripción",
+    "betAmount": "Monto de Apuesta",
+    "odds": "Cuotas",
+    "date": "Fecha y Hora",
+    "outcome": "Resultado",
+    "category": "Categoría",
+    "win": "Ganada",
+    "loss": "Perdida",
+    "pending": "Pendiente",
+    "potentialWin": "Ganancia Potencial",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "cashOutAmount": "Monto a Cobrar",
+    "originalStake": "Apuesta Original",
+    "confirm": "Confirmar",
+    "validAmount": "Por favor ingrese un monto válido"
+  },
+  "metrics": {
+    "daily": "Diario",
+    "weekly": "Semanal",
+    "monthly": "Mensual",
+    "totalBets": "Total de Apuestas",
+    "winRate": "Tasa de Victoria",
+    "profitLoss": "Ganancias/Pérdidas",
+    "roi": "ROI"
+  }
+}

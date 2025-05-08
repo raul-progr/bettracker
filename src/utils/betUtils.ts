@@ -1,5 +1,43 @@
-import { Bet, PerformanceMetric } from '../types';
+import { Bet, PerformanceMetric, OddsFormat } from '../types';
 import { startOfDay, startOfWeek, startOfMonth, isSameDay, isSameWeek, isSameMonth, format } from 'date-fns';
+
+// Convert between different odds formats
+export const convertOdds = (odds: number, from: OddsFormat, to: OddsFormat): number => {
+  // First convert to decimal as intermediate format
+  let decimal: number;
+  
+  // Convert from source format to decimal
+  switch (from) {
+    case 'american':
+      decimal = americanToDecimal(odds);
+      break;
+    case 'decimal':
+      decimal = odds;
+      break;
+    case 'fractional':
+      const [num, den] = odds.toString().split('/').map(Number);
+      decimal = num / den + 1;
+      break;
+    default:
+      decimal = odds;
+  }
+  
+  // Convert from decimal to target format
+  switch (to) {
+    case 'american':
+      return decimalToAmerican(decimal);
+    case 'decimal':
+      return decimal;
+    case 'fractional':
+      const fracOdds = decimal - 1;
+      // Find closest simple fraction
+      const den = 1;
+      const num = Math.round(fracOdds * den);
+      return num / den;
+    default:
+      return odds;
+  }
+};
 
 // Convert American odds to decimal odds
 export const americanToDecimal = (americanOdds: number): number => {
@@ -19,19 +57,33 @@ export const decimalToAmerican = (decimalOdds: number): number => {
   }
 };
 
-// Calculate potential winnings based on bet amount and American odds
-export const calculatePotentialWin = (betAmount: number, americanOdds: number): number => {
-  if (americanOdds > 0) {
-    return (betAmount * americanOdds) / 100;
-  } else {
-    return (betAmount * 100) / Math.abs(americanOdds);
+// Format odds based on selected format
+export const formatOdds = (odds: number, format: OddsFormat): string => {
+  switch (format) {
+    case 'american':
+      return formatAmericanOdds(odds);
+    case 'decimal':
+      return odds.toFixed(2);
+    case 'fractional':
+      const decimal = americanToDecimal(odds) - 1;
+      const den = 1;
+      const num = Math.round(decimal * den);
+      return `${num}/${den}`;
+    default:
+      return odds.toString();
   }
 };
 
+// Calculate potential winnings based on bet amount and odds
+export const calculatePotentialWin = (betAmount: number, odds: number, format: OddsFormat = 'american'): number => {
+  const decimalOdds = format === 'american' ? americanToDecimal(odds) : odds;
+  return betAmount * (decimalOdds - 1);
+};
+
 // Calculate profit/loss based on outcome
-export const calculateProfitLoss = (betAmount: number, americanOdds: number, outcome: 'win' | 'loss' | 'pending'): number => {
+export const calculateProfitLoss = (betAmount: number, odds: number, outcome: 'win' | 'loss' | 'pending'): number => {
   if (outcome === 'pending') return 0;
-  if (outcome === 'win') return calculatePotentialWin(betAmount, americanOdds);
+  if (outcome === 'win') return calculatePotentialWin(betAmount, odds);
   return -betAmount;
 };
 
@@ -73,7 +125,6 @@ export const calculatePerformanceMetrics = (bets: Bet[], periodType: 'day' | 'we
   const metrics: Record<string, PerformanceMetric> = {};
   const today = new Date();
   
-  // Function to determine the period key based on the date
   const getPeriodKey = (date: Date): string => {
     switch (periodType) {
       case 'day':
@@ -87,26 +138,22 @@ export const calculatePerformanceMetrics = (bets: Bet[], periodType: 'day' | 'we
     }
   };
   
-  // Initialize period metrics
   const periodStart = new Date();
   const periods: string[] = [];
   
   if (periodType === 'day') {
-    // Last 7 days
     for (let i = 6; i >= 0; i--) {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
       periods.push(getPeriodKey(date));
     }
   } else if (periodType === 'week') {
-    // Last 4 weeks
     for (let i = 3; i >= 0; i--) {
       const date = new Date(today);
       date.setDate(date.getDate() - (i * 7));
       periods.push(getPeriodKey(date));
     }
   } else if (periodType === 'month') {
-    // Last 6 months
     for (let i = 5; i >= 0; i--) {
       const date = new Date(today);
       date.setMonth(date.getMonth() - i);
@@ -114,7 +161,6 @@ export const calculatePerformanceMetrics = (bets: Bet[], periodType: 'day' | 'we
     }
   }
   
-  // Initialize metrics for each period
   periods.forEach(period => {
     metrics[period] = {
       period,
@@ -127,7 +173,6 @@ export const calculatePerformanceMetrics = (bets: Bet[], periodType: 'day' | 'we
     };
   });
   
-  // Process bets and update metrics
   bets.forEach(bet => {
     const betDate = new Date(bet.date);
     let shouldInclude = false;
@@ -135,21 +180,18 @@ export const calculatePerformanceMetrics = (bets: Bet[], periodType: 'day' | 'we
     
     switch (periodType) {
       case 'day':
-        // Include bets from the last 7 days
         const sevenDaysAgo = new Date(today);
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
         shouldInclude = betDate >= startOfDay(sevenDaysAgo);
         periodKey = getPeriodKey(betDate);
         break;
       case 'week':
-        // Include bets from the last 4 weeks
         const fourWeeksAgo = new Date(today);
         fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
         shouldInclude = betDate >= startOfWeek(fourWeeksAgo);
         periodKey = getPeriodKey(betDate);
         break;
       case 'month':
-        // Include bets from the last 6 months
         const sixMonthsAgo = new Date(today);
         sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
         shouldInclude = betDate >= startOfMonth(sixMonthsAgo);
@@ -170,14 +212,12 @@ export const calculatePerformanceMetrics = (bets: Bet[], periodType: 'day' | 'we
     }
   });
   
-  // Calculate derived metrics and finalize
   const result = periods.map(period => {
     const metric = metrics[period];
     
     if (metric.betsCount > 0) {
       metric.winRate = metric.winCount / metric.betsCount;
       
-      // Calculate ROI (Return on Investment)
       const totalStake = bets
         .filter(bet => {
           const betDate = new Date(bet.date);

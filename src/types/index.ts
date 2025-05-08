@@ -3,9 +3,9 @@ export interface Bet {
   date: string;
   description: string;
   betAmount: number;
-  odds: number; // American odds
+  odds: number;
   outcome: 'win' | 'loss' | 'pending';
-  profitLoss: number; // Positive for win, negative for loss
+  profitLoss: number;
   category?: string;
 }
 
@@ -24,10 +24,17 @@ export interface PerformanceMetric {
   roi: number;
 }
 
+export type OddsFormat = 'american' | 'decimal' | 'fractional';
+
 export interface AppState {
   initialBankroll: number;
   currentBankroll: number;
   bets: Bet[];
   bankrollHistory: BankrollPoint[];
   isDarkMode: boolean;
+  oddsFormat: OddsFormat;
+  language: string;
+  resetHistory: () => void;
+  setOddsFormat: (format: OddsFormat) => void;
+  setLanguage: (lang: string) => void;
 }

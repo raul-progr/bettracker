@@ -1,0 +1,52 @@
+{
+  "common": {
+    "bankroll": "Bankroll",
+    "currentBalance": "Current Balance",
+    "initialBankroll": "Initial Bankroll",
+    "betHistory": "Bet History",
+    "performance": "Performance",
+    "addBet": "Add Bet",
+    "settings": "Settings",
+    "reset": "Reset History",
+    "resetConfirm": "Are you sure you want to reset all betting history? This cannot be undone.",
+    "language": "Language",
+    "oddsFormat": "Odds Format",
+    "searchBets": "Search bets...",
+    "filter": "Filter",
+    "show": "Show",
+    "noBetsFound": "No bets found",
+    "clearFilters": "Clear filters",
+    "markAsWin": "Mark as Win",
+    "markAsLoss": "Mark as Loss",
+    "deleteBet": "Delete Bet",
+    "deleteConfirm": "Are you sure you want to delete this bet?",
+    "cashOut": "Cash Out"
+  },
+  "betForm": {
+    "description": "Description",
+    "betAmount": "Bet Amount",
+    "odds": "Odds",
+    "date": "Date & Time",
+    "outcome": "Outcome",
+    "category": "Category",
+    "win": "Win",
+    "loss": "Loss",
+    "pending": "Pending",
+    "potentialWin": "Potential Win",
+    "save": "Save",
+    "cancel": "Cancel",
+    "cashOutAmount": "Cash Out Amount",
+    "originalStake": "Original Stake",
+    "confirm": "Confirm",
+    "validAmount": "Please enter a valid amount"
+  },
+  "metrics": {
+    "daily": "Daily",
+    "weekly": "Weekly",
+    "monthly": "Monthly",
+    "totalBets": "Total Bets",
+    "winRate": "Win Rate",
+    "profitLoss": "Profit/Loss",
+    "roi": "ROI"
+  }
+}

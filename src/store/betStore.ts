@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { AppState, Bet, BankrollPoint, PerformanceMetric } from '../types';
+import { AppState, Bet, BankrollPoint, OddsFormat } from '../types';
 
 const useStore = create<AppState>()(
   persist(
@@ -10,8 +10,22 @@ const useStore = create<AppState>()(
       bets: [],
       bankrollHistory: [{ date: new Date().toISOString(), balance: 1000 }],
       isDarkMode: false,
+      oddsFormat: 'american',
+      language: 'en',
 
-      // Actions
+      resetHistory: () => {
+        const { initialBankroll } = get();
+        set({
+          currentBankroll: initialBankroll,
+          bets: [],
+          bankrollHistory: [{ date: new Date().toISOString(), balance: initialBankroll }]
+        });
+      },
+
+      setOddsFormat: (format: OddsFormat) => set({ oddsFormat: format }),
+      
+      setLanguage: (lang: string) => set({ language: lang }),
+
       setInitialBankroll: (amount: number) => {
         const currentState = get();
         set({
@@ -57,7 +71,6 @@ const useStore = create<AppState>()(
           bet.id === id ? { ...bet, ...updatedBet } : bet
         );
         
-        // Recalculate bankroll history from the bet date forward
         const betDate = updatedBet.date || oldBet.date;
         const updatedBankrollHistory = [...currentState.bankrollHistory];
         const betIndex = updatedBankrollHistory.findIndex(point => point.date >= betDate);
@@ -83,7 +96,6 @@ const useStore = create<AppState>()(
         
         const updatedBets = currentState.bets.filter(bet => bet.id !== id);
         
-        // Recalculate bankroll history from the bet date forward
         const updatedBankrollHistory = [...currentState.bankrollHistory];
         const betIndex = updatedBankrollHistory.findIndex(point => 
           point.date >= betToDelete.date
