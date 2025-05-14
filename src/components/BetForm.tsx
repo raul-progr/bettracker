@@ -25,6 +25,7 @@ const BetForm: React.FC<BetFormProps> = ({ isOpen, onClose }) => {
   const [date, setDate] = useState(getCurrentDateTime());
   const [outcome, setOutcome] = useState<"win" | "loss" | "pending">("pending");
   const [category, setCategory] = useState("");
+  const [tipster, setTipster] = useState(""); // Nuevo estado para el campo Tipster
 
   const [potentialWin, setPotentialWin] = useState<number | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -125,6 +126,7 @@ const BetForm: React.FC<BetFormProps> = ({ isOpen, onClose }) => {
       outcome,
       profitLoss: outcome === "win" ? profitLoss : -amountValue,
       category: category || undefined,
+      tipster: tipster || undefined, // Agrega el tipster al objeto de la apuesta
     });
 
     resetForm();
@@ -139,6 +141,7 @@ const BetForm: React.FC<BetFormProps> = ({ isOpen, onClose }) => {
     setDate(getCurrentDateTime());
     setOutcome("pending");
     setCategory("");
+    setTipster(""); // Resetea el campo Tipster
     setPotentialWin(null);
   };
 
@@ -174,6 +177,24 @@ const BetForm: React.FC<BetFormProps> = ({ isOpen, onClose }) => {
         {/* Formulario */}
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
+            {/* Campo de Tipster */}
+            <div>
+              <label
+                htmlFor="tipster"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
+                Tipster
+              </label>
+              <input
+                type="text"
+                id="tipster"
+                value={tipster}
+                onChange={(e) => setTipster(e.target.value)}
+                className="w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-200 dark:bg-gray-700 dark:text-white"
+                placeholder="e.g., John Doe"
+              />
+            </div>
+
             {/* Campo de descripción */}
             <div>
               <label
