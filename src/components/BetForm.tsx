@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, Clock } from "lucide-react";
+import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import useStore from "../store/betStore";
 import {
@@ -7,6 +7,8 @@ import {
   convertOdds,
   formatOdds,
 } from "../utils/betUtils";
+import { auth, db } from "../firebase";
+import { collection, addDoc, Timestamp } from "firebase/firestore";
 
 // Props del componente BetForm
 interface BetFormProps {
@@ -14,10 +16,21 @@ interface BetFormProps {
   onClose: () => void;
 }
 
+// Función auxiliar para obtener la fecha y hora actual en formato compatible
+function getCurrentDateTime(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const hours = String(now.getHours()).padStart(2, "0");
+  const minutes = String(now.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
 // Componente principal
 const BetForm: React.FC<BetFormProps> = ({ isOpen, onClose }) => {
   const { t } = useTranslation();
-  const { addBet, oddsFormat } = useStore();
+  const { oddsFormat } = useStore();
 
   const [description, setDescription] = useState("");
   const [betAmount, setBetAmount] = useState("");
@@ -25,38 +38,34 @@ const BetForm: React.FC<BetFormProps> = ({ isOpen, onClose }) => {
   const [date, setDate] = useState(getCurrentDateTime());
   const [outcome, setOutcome] = useState<"win" | "loss" | "pending">("pending");
   const [category, setCategory] = useState("");
-  const [tipster, setTipster] = useState(""); // Nuevo estado para el campo Tipster
+  const [tipster, setTipster] = useState("");
 
   const [potentialWin, setPotentialWin] = useState<number | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [showCalendar, setShowCalendar] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   // Calcula las ganancias potenciales cada vez que cambian el monto o las probabilidades
   useEffect(() => {
     calculatePotential();
-  }, [betAmount, odds]);
+    // eslint-disable-next-line
+  }, [betAmount, odds, oddsFormat]);
 
   // Actualiza la fecha y hora actual cuando el modal se abre
   useEffect(() => {
     if (isOpen) {
+      setDescription("");
+      setBetAmount("");
+      setOdds("");
       setDate(getCurrentDateTime());
+      setOutcome("pending");
+      setCategory("");
+      setTipster("");
+      setPotentialWin(null);
+      setErrors({});
+      setSubmitting(false);
     }
+    // eslint-disable-next-line
   }, [isOpen]);
-
-  // Función auxiliar para obtener la fecha y hora actual en formato compatible
-  function getCurrentDateTime(): string {
-    const now = new Date();
-
-    // Obtiene los componentes de la fecha y hora local
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0"); // Meses van de 0 a 11
-    const day = String(now.getDate()).padStart(2, "0");
-    const hours = String(now.getHours()).padStart(2, "0");
-    const minutes = String(now.getMinutes()).padStart(2, "0");
-
-    // Formatea la fecha y hora en el formato compatible con datetime-local
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
-  }
 
   // Calcula las ganancias potenciales basadas en el monto y las probabilidades
   const calculatePotential = () => {
@@ -96,59 +105,73 @@ const BetForm: React.FC<BetFormProps> = ({ isOpen, onClose }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Maneja el envío del formulario
-  const handleSubmit = (e: React.FormEvent) => {
+  // Maneja el envío del formulario y guarda en Firestore
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateForm()) return;
 
-    if (!validateForm()) {
-      return;
+    setSubmitting(true);
+
+    try {
+      const amountValue = parseFloat(betAmount);
+      const oddsValue = parseFloat(odds);
+
+      const americanOdds =
+        oddsFormat === "american"
+          ? oddsValue
+          : convertOdds(oddsValue, oddsFormat, "american");
+
+      const profitLoss = calculatePotentialWin(
+        amountValue,
+        americanOdds,
+        "american"
+      );
+
+      const user = auth.currentUser;
+      if (!user) {
+        setErrors({ form: "No user authenticated" });
+        setSubmitting(false);
+        return;
+      }
+
+      // Guardar en Firestore
+      await addDoc(collection(db, "users", user.uid, "bets"), {
+        description,
+        betAmount: amountValue,
+        odds: americanOdds,
+        date: Timestamp.fromDate(new Date(date)),
+        outcome,
+        profitLoss: outcome === "win" ? profitLoss : -amountValue,
+        category: category || undefined,
+        tipster: tipster || undefined,
+        createdAt: Timestamp.now(),
+      });
+
+      resetForm();
+      onClose();
+    } catch (err: any) {
+      setErrors({ form: err.message || "Error saving bet" });
+    } finally {
+      setSubmitting(false);
     }
-
-    const amountValue = parseFloat(betAmount);
-    const oddsValue = parseFloat(odds);
-
-    const americanOdds =
-      oddsFormat === "american"
-        ? oddsValue
-        : convertOdds(oddsValue, oddsFormat, "american");
-
-    const profitLoss = calculatePotentialWin(
-      amountValue,
-      americanOdds,
-      "american"
-    );
-
-    addBet({
-      description,
-      betAmount: amountValue,
-      odds: americanOdds,
-      date: new Date(date).toISOString(),
-      outcome,
-      profitLoss: outcome === "win" ? profitLoss : -amountValue,
-      category: category || undefined,
-      tipster: tipster || undefined, // Agrega el tipster al objeto de la apuesta
-    });
-
-    resetForm();
-    onClose();
   };
 
   // Resetea el formulario
-  const resetForm = () => {
+  const resetForm = (resetDate = true) => {
     setDescription("");
     setBetAmount("");
     setOdds("");
-    setDate(getCurrentDateTime());
+    if (resetDate) setDate(getCurrentDateTime());
     setOutcome("pending");
     setCategory("");
-    setTipster(""); // Resetea el campo Tipster
+    setTipster("");
     setPotentialWin(null);
+    setErrors({});
+    setSubmitting(false); // <-- IMPORTANTE: asegúrate de resetear también el estado de submitting
   };
 
-  // Si el formulario no está abierto, no renderiza nada
   if (!isOpen) return null;
 
-  // Renderiza el formulario modal
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
@@ -169,6 +192,8 @@ const BetForm: React.FC<BetFormProps> = ({ isOpen, onClose }) => {
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
             aria-label={t("betForm.close")}
+            type="button"
+            disabled={submitting}
           >
             <X size={20} />
           </button>
@@ -192,6 +217,7 @@ const BetForm: React.FC<BetFormProps> = ({ isOpen, onClose }) => {
                 onChange={(e) => setTipster(e.target.value)}
                 className="w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-200 dark:bg-gray-700 dark:text-white"
                 placeholder="e.g., John Doe"
+                disabled={submitting}
               />
             </div>
 
@@ -216,6 +242,7 @@ const BetForm: React.FC<BetFormProps> = ({ isOpen, onClose }) => {
                 placeholder="e.g., Lakers vs. Celtics - Lakers to win"
                 aria-invalid={!!errors.description}
                 aria-describedby="descriptionError"
+                disabled={submitting}
               />
               {errors.description && (
                 <p
@@ -253,6 +280,7 @@ const BetForm: React.FC<BetFormProps> = ({ isOpen, onClose }) => {
                     placeholder="100.00"
                     aria-invalid={!!errors.betAmount}
                     aria-describedby="betAmountError"
+                    disabled={submitting}
                   />
                 </div>
                 {errors.betAmount && (
@@ -291,6 +319,7 @@ const BetForm: React.FC<BetFormProps> = ({ isOpen, onClose }) => {
                   }
                   aria-invalid={!!errors.odds}
                   aria-describedby="oddsError"
+                  disabled={submitting}
                 />
                 {errors.odds && (
                   <p
@@ -336,6 +365,7 @@ const BetForm: React.FC<BetFormProps> = ({ isOpen, onClose }) => {
                   }`}
                   aria-invalid={!!errors.date}
                   aria-describedby="dateError"
+                  disabled={submitting}
                 />
               </div>
               {errors.date && (
@@ -363,6 +393,7 @@ const BetForm: React.FC<BetFormProps> = ({ isOpen, onClose }) => {
                     onChange={() => setOutcome("win")}
                     className="h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500"
                     aria-labelledby="winLabel"
+                    disabled={submitting}
                   />
                   <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
                     {t("betForm.win")}
@@ -377,6 +408,7 @@ const BetForm: React.FC<BetFormProps> = ({ isOpen, onClose }) => {
                     onChange={() => setOutcome("loss")}
                     className="h-4 w-4 text-red-600 border-gray-300 focus:ring-red-500"
                     aria-labelledby="lossLabel"
+                    disabled={submitting}
                   />
                   <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
                     {t("betForm.loss")}
@@ -391,6 +423,7 @@ const BetForm: React.FC<BetFormProps> = ({ isOpen, onClose }) => {
                     onChange={() => setOutcome("pending")}
                     className="h-4 w-4 text-yellow-600 border-gray-300 focus:ring-yellow-500"
                     aria-labelledby="pendingLabel"
+                    disabled={submitting}
                   />
                   <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
                     {t("betForm.pending")}
@@ -414,9 +447,17 @@ const BetForm: React.FC<BetFormProps> = ({ isOpen, onClose }) => {
                 onChange={(e) => setCategory(e.target.value)}
                 className="w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-200 dark:bg-gray-700 dark:text-white"
                 placeholder="e.g., Basketball, Football, etc."
+                disabled={submitting}
               />
             </div>
           </div>
+
+          {/* Mensaje de error general */}
+          {errors.form && (
+            <div className="mt-2 text-sm text-red-600 dark:text-red-400">
+              {errors.form}
+            </div>
+          )}
 
           {/* Botones de acción */}
           <div className="flex justify-end space-x-3 mt-6">
@@ -424,14 +465,16 @@ const BetForm: React.FC<BetFormProps> = ({ isOpen, onClose }) => {
               type="button"
               onClick={onClose}
               className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+              disabled={submitting}
             >
               {t("betForm.cancel")}
             </button>
             <button
               type="submit"
               className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+              disabled={submitting}
             >
-              {t("betForm.save")}
+              {submitting ? t("betForm.saving") || "Guardando..." : t("betForm.save")}
             </button>
           </div>
         </form>
